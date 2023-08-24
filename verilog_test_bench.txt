@@ -1,0 +1,102 @@
+module saf_lock_tb();
+    integer kn;
+    integer in[0:15];
+    integer wr[0:3];
+    integer i;
+    initial begin
+        in[0]=4;
+        in[1]=6;
+        in[2]=5;
+        in[3]=2;
+        
+        in[4]=4;
+        in[5]=6;
+        in[6]=5;
+        in[7]=2;
+        
+        in[8]=4;
+        in[9]=6;
+        in[10]=8;
+        in[11]=3;
+        
+        in[12]=4;
+        in[13]=6;
+        in[14]=8;
+        in[15]=3;
+        
+        wr[0]=4;
+        wr[1]=6;
+        wr[2]=5;
+        wr[3]=1;
+    end
+    
+    reg clk;
+    wire open_close;
+    wire [3:0]n;
+    wire r0,r1,r2,r3;
+    wire c0,c1,c2;
+    wire v;
+    wire alarm;
+    wire [2:0]count;
+    reg reset;
+    wire [1:0] count_tries;
+    
+    assign r0= ((c0 == 1'b1 & kn == 1) | (c1 == 1'b1 & kn == 2) | (c2 == 1'b1 & kn == 3)) ? 1'b1 : 1'b0 ;
+    assign r1 = ((c0 == 1'b1 & kn == 4) | (c1 == 1'b1 & kn == 5) | (c2 == 1'b1 & kn == 6)) ? 1'b1 : 1'b0 ;
+    assign r2 = ((c0 == 1'b1 & kn == 7) | (c1 == 1'b1 & kn == 8) | (c2 == 1'b1 & kn == 9)) ? 1'b1 : 1'b0 ;
+    assign r3 = ((c0 == 1'b1 & kn == 10) | (c1 == 1'b1 & kn == 0) | (c2 == 1'b1 & kn == 11)) ? 1'b1 : 1'b0 ;
+    
+    saf_lock UUT(reset,kn,clk,open_close,n,r0,r1,r2,r3,c0,c1,c2,v,count,alarm,count_tries);
+    initial begin
+        reset=0;
+        clk=0;
+        forever #2 clk=~clk;
+    end
+    
+    initial begin
+        for(i=0;i<=3;i=i+1)
+        begin
+            #2
+            kn=in[i];
+            while(v==1'b0)
+                @(posedge clk);
+        end
+        
+        for(i=0;i<=3;i=i+1)
+        begin
+            #2
+            kn=wr[i];
+            while(v==1'b0)
+                @(posedge clk);
+        end
+        
+        for(i=4;i<=7;i=i+1)
+        begin
+            #2
+            kn=in[i];
+            while(v==1'b0)
+                @(posedge clk);
+        end    
+        #5
+        reset=1;
+        for (i=8;i<=11;i=i+1)
+        begin
+            #2
+            kn=in[i];
+            while(v==1'b0)
+                @(posedge clk);
+        end
+        #5
+        reset=0;
+        for(i=12;i<=15;i=i+1)
+        begin
+            #2
+            kn=in[i];
+            while(v==1'b0)
+                @(posedge clk);
+        end
+        #50      
+         $finish;   
+    end
+
+endmodule

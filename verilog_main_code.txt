@@ -1,0 +1,319 @@
+module scanner (R0, R1, R2, R3, CLK, C0, C1, C2, N0, N1, N2, N3, V,check1,s);
+input R0; input R1; input R2; input R3; input CLK; inout C0; inout C1; inout C2; output N0; output N1; output N2; output N3; output V;output reg[2:0] check1;output reg[2:0] s;
+reg V; reg C0_tmp, C1_tmp, C2_tmp;
+
+//wire K; 
+//reg Kd; 
+reg N0,N1,N2,N3;
+reg[2:0] state; 
+reg[2:0] nextstate;
+assign C0 = C0_tmp; assign C1 = C1_tmp; assign C2 = C2_tmp;
+assign K = R0 | R1 | R2 | R3 ; 
+
+
+initial begin
+state = 0; nextstate = 0;
+end
+
+always @(state or R0 or R1 or R2 or R3 or C0 or C1 or C2 or K ) begin
+C0_tmp = 1'b0 ; 
+C1_tmp = 1'b0 ; 
+C2_tmp = 1'b0 ;
+V = 1'b0 ; 
+assign N3 = (R2 & ~C0) | (R3 & ~C1) ; 
+assign N2 = R1 | (R2 & C0) ; 
+assign N1 = (R0 & ~C0) | (~R2 & C2) | (~R1 & ~R0 & C0) ; 
+assign N0 = (R1 & C1) | (~R1 & C2) | (~R3 & ~R1 & ~C1) ;
+case (state) 
+    0 :
+        
+        begin 
+        s=3'b000;
+        nextstate = 1 ; 
+        end 
+    1 : 
+        
+        begin
+            s=3'b001;
+            C0_tmp = 1'b1 ; 
+            C1_tmp = 1'b1 ; 
+            C2_tmp = 1'b1 ; 
+            if ( K == 1'b1) begin
+                nextstate = 2 ;
+            end 
+            else 
+            begin
+            nextstate = 1 ; 
+            end 
+         end 
+    2 : 
+        begin
+            s=3'b010;
+            C0_tmp = 1'b1 ; 
+            if ( K == 1'b1) 
+            begin
+                V = 1'b1 ;
+                nextstate=5;
+            end
+            else if(K==1'b0)
+            begin
+                nextstate=3;
+            end
+            
+       end
+       
+    3 : 
+           begin
+               s=3'b011;
+               C1_tmp = 1'b1 ; 
+               if (K == 1'b1) 
+               begin
+                   V = 1'b1 ;
+                   nextstate=5;
+               end
+               else if(K==1'b0)
+               begin
+                   nextstate=4;
+               end
+               
+          end
+          
+    4 : 
+              begin
+                  s=3'b100;
+                  C2_tmp = 1'b1 ; 
+                  if ( K == 1'b1) 
+                  begin
+                      V = 1'b1 ;
+                      nextstate=5;
+                  end
+                  
+                  else
+                  begin
+                      nextstate=4;
+                  end
+             end
+
+    5 : 
+             begin
+                s=3'b101;
+                
+                nextstate=1;
+            end
+endcase
+end
+
+always@(posedge CLK)
+begin
+    state <= nextstate;
+    //QA <= K;
+    //Kd <= QA;
+    check1<=K;
+    //check2<=Kd;
+end 
+endmodule
+
+
+module saf_lock(reset,kn,clk,open_close,n,r0,r1,r2,r3,c0,c1,c2,v,count,alarm,count_tries);
+input kn;
+input clk;
+input r0,r1,r2,r3,c0,c1,c2;
+output reg open_close;
+output v;
+output alarm;
+input reset;
+
+reg [3:0] password[0:3];
+
+
+reg [3:0] temp_input;
+wire r0,r1,r2,r3;
+wire c0,c1,c2,c3;
+wire s;
+wire v;
+wire [2:0]check1;
+output wire [3:0]n;
+reg [3:0]N[0:3];
+output reg [2:0]count=3'b000;
+output reg [1:0] count_tries=2'b11;
+//output reg alarm;
+reg pstate,nstate,alarm;
+    
+initial begin
+    pstate=0;
+    nstate=0;
+end
+
+scanner s1(r0,r1,r2,r3,clk,c0,c1,c2,n[0],n[1],n[2],n[3],v,check1,s);
+ 
+always@(pstate or reset or r0 or r1 or r2 or r3 or c0 or c1 or c2)
+begin
+
+case(pstate)
+   0:
+        begin
+            
+            if(v==1)
+            begin
+            
+                if(count==3'b000)
+                begin
+                    password[0]=n;
+                    count=count+1;
+                    nstate=0;
+                end
+                
+                else if(count==3'b001)
+                begin
+                    password[1]=n;
+                    count=count+1;
+                    nstate=0;
+                end
+                
+                else if(count==3'b010)
+                begin
+                    password[2]=n;
+                    count=count+1;
+                    nstate=0;
+                end
+                
+                else if(count==3'b011)
+                begin
+                    password[3]=n;
+                    count=3'b000;
+                    nstate=1;
+                end
+            end
+            
+            else
+            begin
+                nstate=0;
+            end
+        
+        end
+    
+   1:
+        begin
+           open_close=0;
+           if(reset==1)
+           begin
+                nstate=2;
+           end
+           
+           else
+           begin
+             if(v==1)
+             begin
+             
+                 if(count==3'b000)
+                 begin
+                     N[0]=n;
+                     count=count+1;
+                     nstate=1;
+                 end
+                 
+                 else if(count==3'b001)
+                 begin
+                     N[1]=n;
+                     count=count+1;
+                     nstate=1;
+                 end
+                 
+                 else if(count==3'b010)
+                 begin
+                     N[2]=n;
+                     count=count+1;
+                     nstate=1;
+                 end
+                 
+                 else if(count==3'b011)
+                 begin
+                     N[3]=n;
+                     count=3'b000;
+                     if(((N[0]==password[0])&(N[1]==password[1])&(N[2]==password[2])&(N[3]==password[3]))==1)
+                     begin
+                        open_close=1;
+                        count_tries=2'b11;
+                        nstate=1;
+                     end
+                     
+                     else
+                     begin
+                        open_close=0;
+                        count_tries=count_tries-1;
+                        if(count_tries==2'b00)
+                        begin
+                            alarm=1;
+                            count_tries=2'b11;
+                            nstate=1;
+                        end
+                        
+                        else
+                        begin
+                            nstate=1;
+                        end
+                     end
+                     
+                 end
+             end
+             
+             else
+             begin
+                 nstate=1;
+             end
+         end// else end reset=0
+        end     
+        
+   2:
+        begin
+            if(v==1)
+            begin
+                     
+                         if(count==3'b000)
+                         begin
+                             N[0]=n;
+                             count=count+1;
+                             nstate=1;
+                         end
+                         
+                         else if(count==3'b001)
+                         begin
+                             N[1]=n;
+                             count=count+1;
+                             nstate=1;
+                         end
+                         
+                         else if(count==3'b010)
+                         begin
+                             N[2]=n;
+                             count=count+1;
+                             nstate=1;
+                         end
+                         
+                         else if(count==3'b011)
+                         begin
+                             N[3]=n;
+                             count=3'b000;
+                             if(((N[0]==password[0])&(N[1]==password[1])&(N[2]==password[2])&(N[3]==password[3]))==1)
+                             begin
+                                nstate=0;
+                             end
+                             
+                             else
+                             begin
+                                alarm=0;
+                                nstate=1;
+                             end
+                             
+                         end
+             end
+        end       
+endcase
+    
+end
+    
+always@(posedge clk)
+begin
+     pstate=nstate;
+end
+endmodule
